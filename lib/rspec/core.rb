@@ -1,43 +1,44 @@
-if defined?(require_relative)
-  # @private
-  def require_rspec(path)
+require_rspec = if defined?(require_relative)
+  lambda do |path|
     require_relative path
   end
 else
-  # @private
-  def require_rspec(path)
+  lambda do |path|
     require "rspec/#{path}"
   end
 end
 
 require 'set'
 require 'rbconfig'
-require_rspec 'core/filter_manager'
-require_rspec 'core/dsl'
-require_rspec 'core/extensions'
-require_rspec 'core/load_path'
-require_rspec 'core/deprecation'
-require_rspec 'core/backward_compatibility'
-require_rspec 'core/reporter'
+require_rspec['core/filter_manager']
+require_rspec['core/dsl']
+require_rspec['core/extensions/kernel']
+require_rspec['core/extensions/instance_eval_with_args']
+require_rspec['core/extensions/module_eval_with_args']
+require_rspec['core/extensions/ordered']
+require_rspec['core/load_path']
+require_rspec['core/deprecation']
+require_rspec['core/backward_compatibility']
+require_rspec['core/reporter']
 
-require_rspec 'core/metadata_hash_builder'
-require_rspec 'core/hooks'
-require_rspec 'core/subject'
-require_rspec 'core/let'
-require_rspec 'core/metadata'
-require_rspec 'core/pending'
+require_rspec['core/metadata_hash_builder']
+require_rspec['core/hooks']
+require_rspec['core/subject']
+require_rspec['core/let']
+require_rspec['core/metadata']
+require_rspec['core/pending']
 
-require_rspec 'core/world'
-require_rspec 'core/configuration'
-require_rspec 'core/project_initializer'
-require_rspec 'core/option_parser'
-require_rspec 'core/configuration_options'
-require_rspec 'core/command_line'
-require_rspec 'core/runner'
-require_rspec 'core/example'
-require_rspec 'core/shared_example_group'
-require_rspec 'core/example_group'
-require_rspec 'core/version'
+require_rspec['core/world']
+require_rspec['core/configuration']
+require_rspec['core/project_initializer']
+require_rspec['core/option_parser']
+require_rspec['core/configuration_options']
+require_rspec['core/command_line']
+require_rspec['core/runner']
+require_rspec['core/example']
+require_rspec['core/shared_example_group']
+require_rspec['core/example_group']
+require_rspec['core/version']
 
 module RSpec
   autoload :SharedContext, 'rspec/core/shared_context'
@@ -77,6 +78,20 @@ module RSpec
   # @see RSpec.configure
   # @see Core::Configuration
   def self.configuration
+    if block_given?
+      RSpec.warn_deprecation <<-WARNING
+
+*****************************************************************
+DEPRECATION WARNING
+
+* RSpec.configuration with a block is deprecated and has no effect.
+* please use RSpec.configure with a block instead.
+
+Called from #{caller(0)[1]}
+*****************************************************************
+
+WARNING
+    end
     @configuration ||= RSpec::Core::Configuration.new
   end
 
@@ -104,6 +119,11 @@ module RSpec
   end
 
   module Core
+    # @private
+    # This avoids issues with reporting time caused by examples that
+    # change the value/meaning of Time.now without properly restoring
+    # it.
+    Time = ::Time.dup
   end
 
   def self.const_missing(name)
@@ -123,4 +143,4 @@ module RSpec
   end
 end
 
-require_rspec 'core/backward_compatibility'
+require_rspec['core/backward_compatibility']

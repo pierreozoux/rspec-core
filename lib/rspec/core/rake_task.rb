@@ -1,4 +1,3 @@
-require 'rspec/core'
 require 'rspec/core/deprecation'
 require 'rake'
 require 'rake/tasklib'
@@ -110,33 +109,45 @@ module RSpec
       end
 
       def initialize(*args)
-        @name = args.shift || :spec
-        @pattern, @rcov_path, @rcov_opts, @ruby_opts, @rspec_opts = nil, nil, nil, nil, nil
-        @warning, @rcov = false, false
-        @verbose, @fail_on_error = true, true
-
+        setup_ivars(args)
         yield self if block_given?
 
-        @rcov_path  ||= 'rcov'
-        @rspec_path ||= 'rspec'
-        @pattern    ||= './spec{,/*/**}/*_spec.rb'
-
-        desc("Run RSpec code examples") unless ::Rake.application.last_comment
+        desc "Run RSpec code examples" unless ::Rake.application.last_comment
 
         task name do
           RakeFileUtils.send(:verbose, verbose) do
-            if files_to_run.empty?
-              puts "No examples matching #{pattern} could be found"
-            else
-              begin
-                puts spec_command if verbose
-                success = system(spec_command)
-              rescue
-                puts failure_message if failure_message
-              end
-              raise("#{spec_command} failed") if fail_on_error unless success
-            end
+            run_task verbose
           end
+        end
+      end
+
+      def setup_ivars(args)
+        @name = args.shift || :spec
+        @rcov_opts, @ruby_opts, @rspec_opts = nil, nil, nil
+        @warning, @rcov = false, false
+        @verbose, @fail_on_error = true, true
+
+        @rcov_path  = 'rcov'
+        @rspec_path = 'rspec'
+        @pattern    = './spec{,/*/**}/*_spec.rb'
+      end
+
+      def has_files?
+        empty = files_to_run.empty?
+        puts "No examples matching #{pattern} could be found" if empty
+        not empty
+      end
+
+      def run_task(verbose)
+        files = has_files?
+        if files
+          begin
+            puts spec_command if verbose
+            success = system(spec_command)
+          rescue
+            puts failure_message if failure_message
+          end
+          raise("#{spec_command} failed") if fail_on_error unless success
         end
       end
 
@@ -144,28 +155,28 @@ module RSpec
 
       def files_to_run
         if ENV['SPEC']
-          FileList[ ENV['SPEC'] ]
+          FileList[ ENV['SPEC'] ].sort
         else
-          FileList[ pattern ].map { |f| f.gsub(/"/, '\"').gsub(/'/, "\\\\'") }
+          FileList[ pattern ].sort.map { |f| f.gsub(/"/, '\"').gsub(/'/, "\\\\'") }
         end
       end
 
       def spec_command
-        @spec_command ||= begin
-                            cmd_parts = []
-                            cmd_parts << RUBY
-                            cmd_parts << ruby_opts
-                            cmd_parts << "-w" if @warning
-                            cmd_parts << "-S" << runner
-                            cmd_parts << "-Ispec:lib" << rcov_opts if rcov
-                            cmd_parts << files_to_run
-                            cmd_parts << "--" if rcov && rspec_opts
-                            cmd_parts << rspec_opts
-                            cmd_parts.flatten.reject(&blank).join(" ")
-                          end
+        @spec_command ||= default_spec_command
       end
 
-    private
+      def default_spec_command
+        cmd_parts = []
+        cmd_parts << RUBY
+        cmd_parts << ruby_opts
+        cmd_parts << "-w" if @warning
+        cmd_parts << "-S" << runner
+        cmd_parts << "-Ispec:lib" << rcov_opts if rcov
+        cmd_parts << files_to_run
+        cmd_parts << "--" if rcov && rspec_opts
+        cmd_parts << rspec_opts
+        cmd_parts.flatten.reject(&blank).join(" ")
+      end
 
       def runner
         rcov ? rcov_path : rspec_path

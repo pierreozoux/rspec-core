@@ -156,7 +156,7 @@ module RSpec
         end
 
         def dump_backtrace(example)
-          format_backtrace(example.execution_result[:exception].backtrace, example).each do |backtrace_info|
+          format_backtrace(example.execution_result[:exception].backtrace, example.metadata).each do |backtrace_info|
             output.puts cyan("#{long_padding}# #{backtrace_info}")
           end
         end
@@ -191,11 +191,11 @@ module RSpec
         end
 
         def find_shared_group(example)
-          group_and_ancestors(example).find {|group| group.metadata[:shared_group_name]}
+          group_and_parent_groups(example).find {|group| group.metadata[:shared_group_name]}
         end
 
-        def group_and_ancestors(example)
-          example.example_group.ancestors + [example.example_group]
+        def group_and_parent_groups(example)
+          example.example_group.parent_groups + [example.example_group]
         end
       end
     end
