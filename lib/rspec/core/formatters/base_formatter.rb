@@ -5,24 +5,6 @@ module RSpec
   module Core
     module Formatters
 
-      # The Reporter calls the Formatter with this protocol:
-      #
-      # * start(expected_example_count)
-      # * zero or more of the following
-      #   * example_group_started(group)
-      #   * example_started(example)
-      #   * example_passed(example)
-      #   * example_failed(example)
-      #   * example_pending(example)
-      #   * message(string)
-      # * stop
-      # * start_dump
-      # * dump_pending
-      # * dump_failures
-      # * dump_summary(duration, example_count, failure_count, pending_count)
-      # * seed(value)
-      # * close
-      #
       class BaseFormatter
         include Helpers
         attr_accessor :example_group
@@ -86,8 +68,7 @@ module RSpec
         end
 
         # This method is invoked after all of the examples have executed. The next method
-        # to be invoked after this one is #dump_failures
-        # (BaseTextFormatter then calls #dump_failure once for each failed example.)
+        # to be invoked after this one is #dump_failure (once for each failed example),
         def start_dump
         end
 
@@ -115,10 +96,27 @@ module RSpec
           restore_sync_output
         end
 
+        def format_backtrace(backtrace, example)
+          return "" unless backtrace
+          return backtrace if example.metadata[:full_backtrace] == true
+
+          if at_exit_index = backtrace.index(RSpec::Core::Runner::AT_EXIT_HOOK_BACKTRACE_LINE)
+            backtrace = backtrace[0, at_exit_index]
+          end
+
+          cleansed = backtrace.map { |line| backtrace_line(line) }.compact
+          cleansed.empty? ? backtrace : cleansed
+        end
+
       protected
 
         def configuration
           RSpec.configuration
+        end
+
+        def backtrace_line(line)
+          return nil if configuration.cleaned_from_backtrace?(line)
+          RSpec::Core::Metadata::relative_path(line)
         end
 
         def read_failed_line(exception, example)
@@ -133,8 +131,6 @@ module RSpec
           else
             "Unable to find #{file_path} to read failed line"
           end
-        rescue SecurityError
-          "Unable to read failed line"
         end
 
         def find_failed_line(backtrace, path)
@@ -162,9 +158,11 @@ module RSpec
         end
 
         def color_enabled?
-          configuration.color_enabled?(output)
+          configuration.color_enabled?
         end
+
       end
+
     end
   end
 end

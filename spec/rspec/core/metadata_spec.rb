@@ -4,28 +4,6 @@ module RSpec
   module Core
     describe Metadata do
 
-      describe '.relative_path' do
-        let(:here) { File.expand_path(".") }
-        it "transforms absolute paths to relative paths" do
-          Metadata.relative_path(here).should == "."
-        end
-        it "transforms absolute paths to relative paths anywhere in its argument" do
-          Metadata.relative_path("foo #{here} bar").should == "foo . bar"
-        end
-        it "returns nil if passed an unparseable file:line combo" do
-          Metadata.relative_path("-e:1").should be_nil
-        end
-        # I have no idea what line = line.sub(/\A([^:]+:\d+)$/, '\\1') is supposed to do
-        it "gracefully returns nil if run in a secure thread" do
-          safely do
-            value = Metadata.relative_path(".")
-            # on some rubies, File.expand_path is not a security error, so accept "." as well
-            [nil, "."].should include(value)
-          end
-        end
-
-      end
-
       describe "#process" do
         Metadata::RESERVED_KEYS.each do |key|
           it "prohibits :#{key} as a hash key" do
@@ -208,32 +186,26 @@ module RSpec
         let(:line_number)        { __LINE__ - 1 }
 
         it "stores the description" do
-          mfe.fetch(:description).should eq("example description")
           mfe[:description].should eq("example description")
         end
 
         it "stores the full_description (group description + example description)" do
-          mfe.fetch(:full_description).should eq("group description example description")
           mfe[:full_description].should eq("group description example description")
         end
 
         it "creates an empty execution result" do
-          mfe.fetch(:execution_result).should eq({})
           mfe[:execution_result].should eq({})
         end
 
         it "extracts file path from caller" do
-          mfe.fetch(:file_path).should eq(relative_path(__FILE__))
           mfe[:file_path].should eq(relative_path(__FILE__))
         end
 
         it "extracts line number from caller" do
-          mfe.fetch(:line_number).should eq(line_number)
           mfe[:line_number].should eq(line_number)
         end
 
         it "extracts location from caller" do
-          mfe.fetch(:location).should eq("#{relative_path(__FILE__)}:#{line_number}")
           mfe[:location].should eq("#{relative_path(__FILE__)}:#{line_number}")
         end
 
@@ -243,7 +215,6 @@ module RSpec
         end
 
         it "merges arbitrary options" do
-          mfe.fetch(:arbitrary).should eq(:options)
           mfe[:arbitrary].should eq(:options)
         end
 

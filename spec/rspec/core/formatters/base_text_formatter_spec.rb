@@ -61,12 +61,12 @@ describe RSpec::Core::Formatters::BaseTextFormatter do
       it "preserves ancestry" do
         example = group.example("example name") { raise "something" }
         run_all_and_dump_failures
-        example.example_group.parent_groups.size.should == 1
+        example.example_group.ancestors.size.should == 1
       end
     end
 
     context "with an exception that has an exception instance as its message" do
-      it "does not raise NoMethodError" do
+      it "should not raise NoMethodError" do
         gonzo_exception = RuntimeError.new
         gonzo_exception.stub(:message) { gonzo_exception }
         group.example("example name") { raise gonzo_exception }
@@ -138,8 +138,6 @@ describe RSpec::Core::Formatters::BaseTextFormatter do
     end
 
     context 'for #share_as' do
-      before { RSpec.stub(:warn) }
-
       it 'outputs the name and location' do
 
         share_as :FooBar do
@@ -277,8 +275,6 @@ describe RSpec::Core::Formatters::BaseTextFormatter do
       end
 
       context 'for #share_as' do
-        before { RSpec.stub(:warn) }
-
         it 'outputs the name and location' do
 
           share_as :FooBar2 do

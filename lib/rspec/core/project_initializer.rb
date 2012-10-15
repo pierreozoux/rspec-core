@@ -6,6 +6,7 @@ module RSpec
       end
 
       def run
+        warn "The --configure option no longer needs any arguments, so #{@arg} was ignored." if @arg
         create_spec_helper_file
         create_dot_rspec_file
         delete_if_confirmed("autotest/discover.rb", <<-MESSAGE)
