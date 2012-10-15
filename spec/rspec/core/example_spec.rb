@@ -45,17 +45,6 @@ describe RSpec::Core::Example, :parent_metadata => 'sample' do
     end
   end
 
-  describe "when there is an explicit description" do
-    context "when RSpec.configuration.format_docstrings is set to a block" do
-      it "formats the description using the block" do
-        RSpec.configuration.format_docstrings { |s| s.strip }
-        example = example_group.example(' an example with whitespace ') {}
-        example_group.run
-        example.description.should eql('an example with whitespace')
-      end
-    end
-  end
-
   describe "when there is no explicit description" do
     def expect_with(*frameworks)
       RSpec.configuration.stub(:expecting_with_rspec?).and_return(frameworks.include?(:rspec))
@@ -66,16 +55,6 @@ describe RSpec::Core::Example, :parent_metadata => 'sample' do
             raise "Expected #{val} to be true" unless val
           end
         end
-      end
-    end
-
-    context "when RSpec.configuration.format_docstrings is set to a block" do
-      it "formats the description using the block" do
-        RSpec.configuration.format_docstrings { |s| s.upcase }
-        example_group.example { 5.should eq(5) }
-        example_group.run
-        pattern = /EXAMPLE AT #{relative_path(__FILE__).upcase}:#{__LINE__ - 2}/
-        example_group.examples.first.description.should match(pattern)
       end
     end
 
@@ -242,12 +221,12 @@ describe RSpec::Core::Example, :parent_metadata => 'sample' do
 
       group.run
       results.should eq([
-                          "around (before)",
-                          "before",
-                          "example",
-                          "after",
-                          "around (after)"
-                        ])
+        "around (before)",
+        "before",
+        "example",
+        "after",
+        "around (after)"
+      ])
     end
 
     context "clearing ivars" do
@@ -280,48 +259,37 @@ describe RSpec::Core::Example, :parent_metadata => 'sample' do
       end
     end
 
-    context 'when the example raises an error' do
-      def run_and_capture_reported_message(group)
+    context "when the example and an around hook raise errors" do
+      it "prints the around hook error rather than silencing it" do
+        group = RSpec::Core::ExampleGroup.describe do
+          around(:each) { |e| e.run; raise "around" }
+          example("e") { raise "example" }
+        end
+
         reported_msg = nil
         # We can't use should_receive(:message).with(/.../) here,
         # because if that fails, it would fail within our example-under-test,
         # and since there's already two errors, it would just be reported again.
         RSpec.configuration.reporter.stub(:message) { |msg| reported_msg = msg }
         group.run
-        reported_msg
+        reported_msg.should =~ /An error occurred in an around.* hook/i
       end
+    end
 
-      it "prints any around hook errors rather than silencing them" do
-        group = RSpec::Core::ExampleGroup.describe do
-          around(:each) { |e| e.run; raise "around" }
-          example("e") { raise "example" }
-        end
-
-        message = run_and_capture_reported_message(group)
-        message.should =~ /An error occurred in an around.* hook/i
-      end
-
-      it "prints any after hook errors rather than silencing them" do
+    context "when the example and an after hook raise errors" do
+      it "prints the after hook error rather than silencing it" do
         group = RSpec::Core::ExampleGroup.describe do
           after(:each) { raise "after" }
           example("e") { raise "example" }
         end
 
-        message = run_and_capture_reported_message(group)
-        message.should =~ /An error occurred in an after.* hook/i
-      end
-
-      it 'does not print mock expectation errors' do
-        group = RSpec::Core::ExampleGroup.describe do
-          example do
-            foo = mock
-            foo.should_receive(:bar)
-            raise "boom"
-          end
-        end
-
-        message = run_and_capture_reported_message(group)
-        message.should be_nil
+        reported_msg = nil
+        # We can't use should_receive(:message).with(/.../) here,
+        # because if that fails, it would fail within our example-under-test,
+        # and since there's already two errors, it would just be reported again.
+        RSpec.configuration.reporter.stub(:message) { |msg| reported_msg = msg }
+        group.run
+        reported_msg.should =~ /An error occurred in an after.* hook/i
       end
     end
   end
@@ -349,7 +317,7 @@ describe RSpec::Core::Example, :parent_metadata => 'sample' do
         blah.should be(:success)
       end
     end
-
+      
     context "in before(:each)" do
       it "sets each example to pending" do
         group = RSpec::Core::ExampleGroup.describe do
@@ -386,17 +354,6 @@ describe RSpec::Core::Example, :parent_metadata => 'sample' do
         group.examples.first.should be_pending
       end
     end
-  end
 
-  describe "timing" do
-    it "uses RSpec::Core::Time as to not be affected by changes to time in examples" do
-      reporter = double(:reporter).as_null_object
-      group = RSpec::Core::ExampleGroup.describe
-      example = group.example
-      example.__send__ :start, reporter
-      Time.stub(:now => Time.utc(2012, 10, 1))
-      example.__send__ :finish, reporter
-      expect(example.metadata[:execution_result][:run_time]).to be < 0.2
-    end
   end
 end

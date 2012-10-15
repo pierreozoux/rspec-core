@@ -16,14 +16,6 @@ describe RSpec::Core::Formatters::BaseFormatter do
       formatter.__send__(:backtrace_line, original_line)
       original_line.should eq(File.expand_path(__FILE__))
     end
-
-    it "deals gracefully with a security error" do
-      safely do
-        formatter.__send__(:backtrace_line, __FILE__)
-        # on some rubies, this doesn't raise a SecurityError; this test just
-        # assures that if it *does* raise an error, the error is caught inside
-      end
-    end
   end
 
   describe "read_failed_line" do
@@ -38,16 +30,6 @@ describe RSpec::Core::Formatters::BaseFormatter do
       lambda {
         formatter.send(:read_failed_line, exception, example)
       }.should_not raise_error
-    end
-
-    it "deals gracefully with a security error" do
-      exception = mock(:Exception, :backtrace => [ "#{__FILE__}:#{__LINE__}"])
-      example = mock(:Example, :file_path => __FILE__)
-      safely do
-        lambda {
-          formatter.send(:read_failed_line, exception, example)
-        }.should_not raise_error
-      end
     end
 
     context "when String alias to_int to_i" do
@@ -91,7 +73,7 @@ describe RSpec::Core::Formatters::BaseFormatter do
     end
 
     it "removes lines from rspec and lines that come before the invocation of the at_exit autorun hook" do
-      formatter.format_backtrace(backtrace).should eq(["./my_spec.rb:5"])
+      formatter.format_backtrace(backtrace, stub.as_null_object).should eq(["./my_spec.rb:5"])
     end
   end
 

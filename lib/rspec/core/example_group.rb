@@ -22,7 +22,6 @@ module RSpec
       include Subject::ExampleMethods
       include Pending
       include Let
-      include SharedExampleGroup
 
       # @private
       def self.world
@@ -44,12 +43,7 @@ module RSpec
           end
         end
 
-        def description
-          description = metadata[:example_group][:description]
-          RSpec.configuration.format_docstrings_block.call(description)
-        end
-
-        delegate_to_metadata :described_class, :file_path
+        delegate_to_metadata :description, :described_class, :file_path
         alias_method :display_name, :description
         # @private
         alias_method :describes, :described_class
@@ -247,7 +241,7 @@ module RSpec
 
       # @private
       def self.children
-        @children ||= [].extend(Extensions::Ordered::ExampleGroups)
+        @children ||= [].extend(Extensions::Ordered)
       end
 
       # @private
@@ -255,9 +249,9 @@ module RSpec
         @_descendants ||= [self] + children.inject([]) {|list, c| list + c.descendants}
       end
 
-      ## @private
-      def self.parent_groups
-        @parent_groups ||= ancestors.select {|a| a < RSpec::Core::ExampleGroup}
+      # @private
+      def self.ancestors
+        @_ancestors ||= super().select {|a| a < RSpec::Core::ExampleGroup}
       end
 
       # @private
@@ -314,12 +308,9 @@ module RSpec
       # @private
       def self.run_before_all_hooks(example_group_instance)
         return if descendant_filtered_examples.empty?
-        begin
-          assign_before_all_ivars(superclass.before_all_ivars, example_group_instance)
-          run_hook(:before, :all, example_group_instance)
-        ensure
-          store_before_all_ivars(example_group_instance)
-        end
+        assign_before_all_ivars(superclass.before_all_ivars, example_group_instance)
+        run_hook(:before, :all, example_group_instance)
+        store_before_all_ivars(example_group_instance)
       end
 
       # @private
@@ -370,7 +361,6 @@ An error occurred in an after(:all) hook.
           results_for_descendants = children.ordered.map {|child| child.run(reporter)}.all?
           result_for_this_group && results_for_descendants
         rescue Exception => ex
-          RSpec.wants_to_quit = true if fail_fast?
           fail_filtered_examples(ex, reporter)
         ensure
           run_after_all_hooks(new)
@@ -427,7 +417,7 @@ An error occurred in an after(:all) hook.
 
       # @private
       def self.top_level_description
-        parent_groups.last.description
+        ancestors.last.description
       end
 
       # @private

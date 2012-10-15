@@ -38,7 +38,7 @@ module RSpec::Core
     end
 
     def start(expected_example_count)
-      @start = RSpec::Core::Time.now
+      @start = Time.now
       notify :start, expected_example_count
     end
 
@@ -89,7 +89,7 @@ module RSpec::Core
     alias_method :abort, :finish
 
     def stop
-      @duration = (RSpec::Core::Time.now - @start).to_f if @start
+      @duration = Time.now - @start if @start
       notify :stop
     end
 

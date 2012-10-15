@@ -405,21 +405,17 @@ MESSAGE
         @backtrace_clean_patterns = true_or_false ? [] : DEFAULT_BACKTRACE_PATTERNS
       end
 
-      def color(output=output_stream)
-        # rspec's built-in formatters all call this with the output argument,
-        # but defaulting to output_stream for backward compatibility with
-        # formatters in extension libs
-        return false unless output_to_tty?(output)
+      def color
+        return false unless output_to_tty?
         value_for(:color, @color)
       end
 
       def color=(bool)
         if bool
+          @color = true
           if RSpec.windows_os? and not ENV['ANSICON']
-            warn "You must use ANSICON 1.31 or later (http://adoxa.3eeweb.com/ansicon/) to use colour on Windows"
+            warn "You must use ANSICON 1.31 or later (http://adoxa.110mb.com/ansicon/) to use colour on Windows"
             @color = false
-          else
-            @color = true
           end
         end
       end
@@ -504,7 +500,7 @@ EOM
       # @private
       def files_or_directories_to_run=(*files)
         files = files.flatten
-        files << default_path if (command == 'rspec' || Runner.running_in_drb?) && default_path && files.empty?
+        files << default_path if command == 'rspec' && default_path && files.empty?
         self.files_to_run = get_files_to_run(files)
       end
 
@@ -781,27 +777,8 @@ EOM
 
       # @private
       def load_spec_files
-        files_to_run.uniq.each {|f| load File.expand_path(f) }
+        files_to_run.uniq.map {|f| load File.expand_path(f) }
         raise_if_rspec_1_is_loaded
-      end
-
-      # @private
-      DEFAULT_FORMATTER = lambda { |string| string }
-
-      # Formats the docstring output using the block provided.
-      #
-      # @example
-      #   # This will strip the descriptions of both examples and example groups.
-      #   RSpec.configure do |config|
-      #     config.format_docstrings { |s| s.strip }
-      #   end
-      def format_docstrings(&block)
-        @format_docstrings_block = block_given? ? block : DEFAULT_FORMATTER
-      end
-
-      # @private
-      def format_docstrings_block
-        @format_docstrings_block ||= DEFAULT_FORMATTER
       end
 
       # @api
@@ -822,79 +799,6 @@ EOM
         order.to_s.match(/rand/)
       end
 
-      # @private
-      DEFAULT_ORDERING = lambda { |list| list }
-
-      # @private
-      RANDOM_ORDERING = lambda do |list|
-        Kernel.srand RSpec.configuration.seed
-        list.sort_by { Kernel.rand(list.size) }
-      end
-
-      # Sets a strategy by which to order examples.
-      #
-      # @example
-      #   RSpec.configure do |config|
-      #     config.order_examples do |examples|
-      #       examples.reverse
-      #     end
-      #   end
-      #
-      # @see #order_groups
-      # @see #order_groups_and_examples
-      # @see #order=
-      # @see #seed=
-      def order_examples(&block)
-        @example_ordering_block = block
-        @order = "custom" unless built_in_orderer?(block)
-      end
-
-      # @private
-      def example_ordering_block
-        @example_ordering_block ||= DEFAULT_ORDERING
-      end
-
-      # Sets a strategy by which to order groups.
-      #
-      # @example
-      #   RSpec.configure do |config|
-      #     config.order_groups do |groups|
-      #       groups.reverse
-      #     end
-      #   end
-      #
-      # @see #order_examples
-      # @see #order_groups_and_examples
-      # @see #order=
-      # @see #seed=
-      def order_groups(&block)
-        @group_ordering_block = block
-        @order = "custom" unless built_in_orderer?(block)
-      end
-
-      # @private
-      def group_ordering_block
-        @group_ordering_block ||= DEFAULT_ORDERING
-      end
-
-      # Sets a strategy by which to order groups and examples.
-      #
-      # @example
-      #   RSpec.configure do |config|
-      #     config.order_groups_and_examples do |groups_or_examples|
-      #       groups_or_examples.reverse
-      #     end
-      #   end
-      #
-      # @see #order_groups
-      # @see #order_examples
-      # @see #order=
-      # @see #seed=
-      def order_groups_and_examples(&block)
-        order_groups(&block)
-        order_examples(&block)
-      end
-
     private
 
       def get_files_to_run(paths)
@@ -907,7 +811,7 @@ EOM
 
       def gather_directories(path, patterns)
         patterns.map do |pattern|
-          pattern =~ /^#{path}/ ? Dir[pattern.strip].sort : Dir["#{path}/{#{pattern.strip}}"].sort
+          pattern =~ /^#{path}/ ? Dir[pattern.strip] : Dir["#{path}/{#{pattern.strip}}"]
         end
       end
 
@@ -952,8 +856,12 @@ MESSAGE
         end
       end
 
-      def output_to_tty?(output=output_stream)
-        tty? || (output.respond_to?(:tty?) && output.tty?)
+      def output_to_tty?
+        begin
+          output_stream.tty? || tty?
+        rescue NoMethodError
+          false
+        end
       end
 
       def built_in_formatter(key)
@@ -970,9 +878,6 @@ MESSAGE
         when 'p', 'progress'
           require 'rspec/core/formatters/progress_formatter'
           RSpec::Core::Formatters::ProgressFormatter
-        when 'j', 'json'
-          require 'rspec/core/formatters/json_formatter'
-          RSpec::Core::Formatters::JsonFormatter
         end
       end
 
@@ -1018,7 +923,6 @@ MESSAGE
       end
 
       def order_and_seed_from_seed(value)
-        order_groups_and_examples(&RANDOM_ORDERING)
         @order, @seed = 'rand', value.to_i
       end
 
@@ -1031,19 +935,8 @@ MESSAGE
         order, seed = type.to_s.split(':')
         @order = order
         @seed  = seed = seed.to_i if seed
-
-        if randomize?
-          order_groups_and_examples(&RANDOM_ORDERING)
-        elsif order == 'default'
-          @order, @seed = nil, nil
-          order_groups_and_examples(&DEFAULT_ORDERING)
-        end
-
+        @order, @seed = nil, nil if order == 'default'
         return order, seed
-      end
-
-      def built_in_orderer?(block)
-        [DEFAULT_ORDERING, RANDOM_ORDERING].include?(block)
       end
 
     end

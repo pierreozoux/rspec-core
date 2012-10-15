@@ -49,8 +49,7 @@ module RSpec
       # there is one, otherwise returns a message including the location of the
       # example.
       def description
-        description = metadata[:description].to_s.empty? ? "example at #{location}" : metadata[:description]
-        RSpec.configuration.format_docstrings_block.call(description)
+        metadata[:description].to_s.empty? ? "example at #{location}" : metadata[:description]
       end
 
       # @attr_reader
@@ -206,7 +205,7 @@ module RSpec
       # Used internally to set an exception in an after hook, which
       # captures the exception but doesn't raise it.
       def set_exception(exception, context=nil)
-        if @exception && context != :dont_print
+        if @exception
           # An error has already been set; we don't want to override it,
           # but we also don't want silence the error, so let's print it.
           msg = <<-EOS
@@ -261,7 +260,7 @@ An error occurred #{context}
 
       def start(reporter)
         reporter.example_started(self)
-        record :started_at => RSpec::Core::Time.now
+        record :started_at => Time.now
       end
 
       # @private
@@ -291,8 +290,8 @@ An error occurred #{context}
       end
 
       def record_finished(status, results={})
-        finished_at = RSpec::Core::Time.now
-        record results.merge(:status => status, :finished_at => finished_at, :run_time => (finished_at - execution_result[:started_at]).to_f)
+        finished_at = Time.now
+        record results.merge(:status => status, :finished_at => finished_at, :run_time => (finished_at - execution_result[:started_at]))
       end
 
       def run_before_each
@@ -302,17 +301,11 @@ An error occurred #{context}
 
       def run_after_each
         @example_group_class.run_after_each_hooks(self)
-        verify_mocks
+        @example_group_instance.verify_mocks_for_rspec
       rescue Exception => e
         set_exception(e, "in an after(:each) hook")
       ensure
         @example_group_instance.teardown_mocks_for_rspec
-      end
-
-      def verify_mocks
-        @example_group_instance.verify_mocks_for_rspec
-      rescue Exception => e
-        set_exception(e, :dont_print)
       end
 
       def assign_generated_description

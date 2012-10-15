@@ -19,14 +19,6 @@ module RSpec::Core
       end
     end
 
-    context "when RSpec.configuration.format_docstrings is set to a block" do
-      it "formats the description with that block" do
-        RSpec.configuration.format_docstrings { |s| s.upcase }
-        group = ExampleGroup.describe(' an example ')
-        group.description.should eq(' AN EXAMPLE ')
-      end
-    end
-
     context 'when RSpec.configuration.treat_symbols_as_metadata_keys_with_true_values is set to false' do
       before(:each) do
         RSpec.configure { |c| c.treat_symbols_as_metadata_keys_with_true_values = false }
@@ -393,15 +385,6 @@ module RSpec::Core
         order.should eq([1,2,3])
       end
 
-      it "does not set RSpec.wants_to_quit in case of an error in before all (without fail_fast?)" do
-        group = ExampleGroup.describe
-        group.before(:all) { raise "error in before all" }
-        group.example("example") {}
-
-        group.run
-        RSpec.wants_to_quit.should be_false
-      end
-
       it "runs the before eachs in order" do
         group = ExampleGroup.describe
         order = []
@@ -570,24 +553,6 @@ module RSpec::Core
         example.metadata[:execution_result][:exception].message.should eq("error in before all")
       end
 
-      it "exposes instance variables set in before(:all) from after(:all) even if a before(:all) error occurs" do
-        ivar_value_in_after_hook = nil
-
-        group = ExampleGroup.describe do
-          before(:all) do
-            @an_ivar = :set_in_before_all
-            raise "fail"
-          end
-
-          after(:all) { ivar_value_in_after_hook = @an_ivar }
-
-          it("has a spec") { }
-        end
-
-        group.run
-        ivar_value_in_after_hook.should eq(:set_in_before_all)
-      end
-
       it "treats an error in before(:all) as a failure for a spec in a nested group" do
         example = nil
         group = ExampleGroup.describe do
@@ -731,7 +696,7 @@ module RSpec::Core
           example.example_group.description.should eq('A sample nested group')
         end
 
-        it "has top level metadata from the example_group and its parent groups" do
+        it "has top level metadata from the example_group and its ancestors" do
           example.example_group.metadata.should include(:little_less_nested => 'yep', :nested_describe => 'yep')
         end
 
@@ -751,7 +716,7 @@ module RSpec::Core
           example('ex 1') { 1.should eq(1) }
           example('ex 2') { 1.should eq(1) }
         end
-        group.stub(:filtered_examples) { group.examples.extend(Extensions::Ordered::Examples) }
+        group.stub(:filtered_examples) { group.examples.extend(Extensions::Ordered) }
         group.run(reporter).should be_true
       end
 
@@ -760,7 +725,7 @@ module RSpec::Core
           example('ex 1') { 1.should eq(1) }
           example('ex 2') { 1.should eq(2) }
         end
-        group.stub(:filtered_examples) { group.examples.extend(Extensions::Ordered::Examples) }
+        group.stub(:filtered_examples) { group.examples.extend(Extensions::Ordered) }
         group.run(reporter).should be_false
       end
 
@@ -769,7 +734,7 @@ module RSpec::Core
           example('ex 1') { 1.should eq(2) }
           example('ex 2') { 1.should eq(1) }
         end
-        group.stub(:filtered_examples) { group.examples.extend(Extensions::Ordered::Examples) }
+        group.stub(:filtered_examples) { group.examples.extend(Extensions::Ordered) }
         group.filtered_examples.each do |example|
           example.should_receive(:run)
         end
@@ -855,13 +820,9 @@ module RSpec::Core
       let(:reporter) { double("reporter").as_null_object }
 
       context "with fail_fast? => true" do
-        let(:group) do
+        it "does not run examples after the failed example" do
           group = RSpec::Core::ExampleGroup.describe
           group.stub(:fail_fast?) { true }
-          group
-        end
-
-        it "does not run examples after the failed example" do
           examples_run = []
           group.example('example 1') { examples_run << self }
           group.example('example 2') { examples_run << self; fail; }
@@ -870,13 +831,6 @@ module RSpec::Core
           group.run
 
           examples_run.length.should eq(2)
-        end
-
-        it "sets RSpec.wants_to_quit flag if encountering an exception in before(:all)" do
-          group.before(:all) { raise "error in before all" }
-          example = group.example("equality") { 1.should eq(2) }
-          group.run.should be_false
-          RSpec.wants_to_quit.should be_true
         end
       end
 
